@@ -1,0 +1,1084 @@
+"use client";
+
+import { useParams } from "next/navigation";
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  ArrowLeft,
+  MapPin,
+  Calendar,
+  Users,
+  DollarSign,
+  Trophy,
+  Clock,
+  Star,
+  Share2,
+  Heart,
+  ExternalLink,
+  Phone,
+  Mail,
+  Globe,
+  Medal,
+  Award,
+} from "lucide-react";
+import Link from "next/link";
+import { toast } from "sonner";
+import { api } from "@/lib/api-client";
+
+interface TournamentResult {
+  division: string;
+  format: string;
+  skillLevel: string;
+  results: {
+    place: number;
+    players: string[];
+    prize?: string;
+    points?: number;
+  }[];
+}
+
+interface Tournament {
+  id: string;
+  name: string;
+  description: string;
+  date: string;
+  endDate?: string;
+  location: string;
+  venue: string;
+  address: string;
+  format: string[];
+  skillLevels: string[];
+  entryFee: number;
+  maxParticipants: number;
+  currentParticipants: number;
+  registrationDeadline: string;
+  status:
+    | "upcoming"
+    | "registration_open"
+    | "registration_closed"
+    | "in_progress"
+    | "completed"
+    | "draft";
+  organizer: string;
+  organizerContact?: {
+    email?: string;
+    phone?: string;
+    website?: string;
+  };
+  prizes: string;
+  featured: boolean;
+  rules?: string;
+  schedule?: {
+    time: string;
+    event: string;
+  }[];
+  amenities?: string[];
+  image?: string;
+  results?: TournamentResult[];
+}
+
+// Mock tournament data with results
+const mockTournaments: { [key: string]: Tournament } = {
+  "raleigh-spring-2024": {
+    id: "raleigh-spring-2024",
+    name: "Raleigh Spring Championship",
+    description:
+      "Join us for the annual Raleigh Spring Championship! This premier tournament features multiple divisions across all skill levels, from recreational players to seasoned pros. With over $5,000 in prize money and trophies for all division winners, this is the tournament you don't want to miss. The event was held at the beautiful Millbrook Exchange Park with 12 dedicated pickleball courts, professional referees, and live scoring updates throughout the tournament.",
+    date: "2024-03-15",
+    endDate: "2024-03-17",
+    location: "Raleigh, NC",
+    venue: "Millbrook Exchange Park",
+    address: "1905 Spring Forest Rd, Raleigh, NC 27615",
+    format: ["Singles", "Doubles", "Mixed Doubles"],
+    skillLevels: ["3.0", "3.5", "4.0", "4.5", "5.0"],
+    entryFee: 75,
+    maxParticipants: 128,
+    currentParticipants: 128,
+    registrationDeadline: "2024-03-10",
+    status: "completed",
+    organizer: "Triangle Pickleball Association",
+    organizerContact: {
+      email: "info@trianglepickleball.com",
+      phone: "(919) 555-0123",
+      website: "https://trianglepickleball.com",
+    },
+    prizes: "$5,000 total prize pool distributed across all divisions",
+    featured: true,
+    rules:
+      "USA Pickleball rules apply. All matches are best 2 out of 3 games to 11 points, win by 2. Tournament format is double elimination for all divisions. Players must check in 30 minutes before their first match. Proper athletic attire required.",
+    schedule: [
+      { time: "7:00 AM", event: "Registration & Check-in Opens" },
+      { time: "8:00 AM", event: "Opening Ceremony" },
+      { time: "8:30 AM", event: "First Round Matches Begin" },
+      { time: "12:00 PM", event: "Lunch Break" },
+      { time: "1:00 PM", event: "Afternoon Matches Resume" },
+      { time: "6:00 PM", event: "Day 1 Conclusion" },
+      { time: "8:00 AM", event: "Day 2 - Quarterfinals" },
+      { time: "2:00 PM", event: "Day 3 - Finals & Awards Ceremony" },
+    ],
+    amenities: [
+      "12 dedicated pickleball courts",
+      "Professional referees",
+      "Live scoring updates",
+      "Food trucks on-site",
+      "Free parking",
+      "Pro shop",
+      "First aid station",
+      "Spectator seating",
+    ],
+    image:
+      "/placeholder.svg?height=400&width=600&text=Raleigh+Spring+Championship",
+    results: [
+      {
+        division: "Men's Doubles",
+        format: "Doubles",
+        skillLevel: "5.0",
+        results: [
+          {
+            place: 1,
+            players: ["Mike Johnson", "David Chen"],
+            prize: "$800",
+            points: 100,
+          },
+          {
+            place: 2,
+            players: ["Alex Rodriguez", "James Wilson"],
+            prize: "$500",
+            points: 75,
+          },
+          {
+            place: 3,
+            players: ["Robert Taylor", "Kevin Brown"],
+            prize: "$300",
+            points: 50,
+          },
+          { place: 4, players: ["Chris Davis", "Mark Anderson"], points: 25 },
+        ],
+      },
+      {
+        division: "Women's Doubles",
+        format: "Doubles",
+        skillLevel: "5.0",
+        results: [
+          {
+            place: 1,
+            players: ["Sarah Martinez", "Lisa Thompson"],
+            prize: "$800",
+            points: 100,
+          },
+          {
+            place: 2,
+            players: ["Jennifer Garcia", "Amanda White"],
+            prize: "$500",
+            points: 75,
+          },
+          {
+            place: 3,
+            players: ["Michelle Lee", "Rachel Johnson"],
+            prize: "$300",
+            points: 50,
+          },
+          { place: 4, players: ["Emily Davis", "Jessica Wilson"], points: 25 },
+        ],
+      },
+      {
+        division: "Mixed Doubles",
+        format: "Mixed Doubles",
+        skillLevel: "4.5",
+        results: [
+          {
+            place: 1,
+            players: ["Tom Wilson", "Maria Rodriguez"],
+            prize: "$600",
+            points: 100,
+          },
+          {
+            place: 2,
+            players: ["Steve Johnson", "Anna Chen"],
+            prize: "$400",
+            points: 75,
+          },
+          {
+            place: 3,
+            players: ["Paul Martinez", "Kelly Brown"],
+            prize: "$250",
+            points: 50,
+          },
+          { place: 4, players: ["Dan Taylor", "Sophie Davis"], points: 25 },
+        ],
+      },
+      {
+        division: "Men's Singles",
+        format: "Singles",
+        skillLevel: "4.0",
+        results: [
+          { place: 1, players: ["Carlos Mendez"], prize: "$400", points: 100 },
+          { place: 2, players: ["Ryan Thompson"], prize: "$250", points: 75 },
+          { place: 3, players: ["Jake Williams"], prize: "$150", points: 50 },
+          { place: 4, players: ["Nick Anderson"], points: 25 },
+        ],
+      },
+      {
+        division: "Women's Singles",
+        format: "Singles",
+        skillLevel: "4.0",
+        results: [
+          { place: 1, players: ["Diana Lopez"], prize: "$400", points: 100 },
+          { place: 2, players: ["Katie Miller"], prize: "$250", points: 75 },
+          { place: 3, players: ["Samantha Jones"], prize: "$150", points: 50 },
+          { place: 4, players: ["Nicole Garcia"], points: 25 },
+        ],
+      },
+    ],
+  },
+  "durham-summer-2024": {
+    id: "durham-summer-2024",
+    name: "Durham Summer Open",
+    description:
+      "Experience competitive pickleball in the heart of Durham! This tournament welcomes players of all skill levels with divisions from beginner to advanced. Enjoy our newly renovated courts and fantastic local food vendors.",
+    date: "2024-06-22",
+    endDate: "2024-06-23",
+    location: "Durham, NC",
+    venue: "Kiwanis Park",
+    address: "2400 Kiwanis Park Dr, Durham, NC 27707",
+    format: ["Doubles", "Mixed Doubles"],
+    skillLevels: ["2.5", "3.0", "3.5", "4.0", "4.5"],
+    entryFee: 60,
+    maxParticipants: 96,
+    currentParticipants: 72,
+    registrationDeadline: "2024-06-18",
+    status: "registration_open",
+    organizer: "Durham Pickleball Club",
+    organizerContact: {
+      email: "events@durhampickleball.org",
+      phone: "(919) 555-0456",
+      website: "https://durhampickleball.org",
+    },
+    prizes: "$3,500 prize pool plus local sponsor prizes",
+    featured: false,
+    rules:
+      "Round robin pool play followed by single elimination brackets. All games to 11, win by 2.",
+    image: "/placeholder.svg?height=400&width=600&text=Durham+Summer+Open",
+  },
+};
+
+export default function TournamentDetailsPage() {
+  const params = useParams();
+  const tournamentId = params.id as string;
+
+  const [tournament, setTournament] = useState<Tournament | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [isRegistered, setIsRegistered] = useState(false);
+  const [isFavorited, setIsFavorited] = useState(false);
+
+  useEffect(() => {
+    const fetchTournament = async () => {
+      try {
+        setLoading(true);
+
+        const response = await api.get(`/tournaments/${tournamentId}`);
+        if (response.ok) {
+          const apiTournament = response;
+
+          // Transform API data to match component interface
+          const transformedTournament: Tournament = {
+            id: apiTournament.id || apiTournament.slug,
+            name: apiTournament.name,
+            description:
+              apiTournament.description || "No description available",
+            date: apiTournament.start_date,
+            endDate: apiTournament.end_date,
+            location: `${apiTournament.venue_city || "Unknown"}, ${
+              apiTournament.venue_state || "NC"
+            }`,
+            venue:
+              apiTournament.venue_name ||
+              apiTournament.custom_venue_name ||
+              "TBD",
+            address:
+              apiTournament.venue_address ||
+              apiTournament.custom_venue_address ||
+              "TBD",
+            format: apiTournament.formats || [],
+            skillLevels: apiTournament.skill_levels || [],
+            entryFee: apiTournament.entry_fee
+              ? apiTournament.entry_fee / 100
+              : 0,
+            maxParticipants: apiTournament.max_participants || 0,
+            currentParticipants: apiTournament.current_participants || 0,
+            registrationDeadline:
+              apiTournament.registration_deadline || apiTournament.start_date,
+            status: (apiTournament.status as any) || "draft",
+            organizer: apiTournament.organizer_name || "Tournament Organizer",
+            organizerContact: {
+              email: apiTournament.organizer_email,
+              phone: apiTournament.organizer_phone,
+              website: apiTournament.organizer_website,
+            },
+            prizes: apiTournament.prizes || "Prizes TBD",
+            featured: apiTournament.featured || false,
+            rules: apiTournament.rules || "Standard tournament rules apply",
+            image: `/placeholder.svg?height=400&width=600&text=${encodeURIComponent(
+              apiTournament.name
+            )}`,
+          };
+
+          setTournament(transformedTournament);
+          setLoading(false);
+          return;
+        }
+
+        if (response.status === 404) {
+          const mockTournament = mockTournaments[tournamentId];
+          setTournament(mockTournament || null);
+        } else {
+          setTournament(null);
+        }
+        setLoading(false);
+      } catch (error) {
+        console.error("Error fetching tournament:", error);
+        // Fallback to mock data on network error
+        const mockTournament = mockTournaments[tournamentId];
+        setTournament(mockTournament || null);
+        setLoading(false);
+      }
+    };
+
+    fetchTournament();
+  }, [tournamentId]);
+
+  if (loading) {
+    return (
+      <div className="container mx-auto p-4 md:p-6 flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <div className="w-10 h-10 mx-auto mb-4 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+          <h3 className="text-lg font-medium">Loading tournament details...</h3>
+        </div>
+      </div>
+    );
+  }
+
+  if (!tournament) {
+    return (
+      <div className="container mx-auto p-4 md:p-6">
+        <div className="text-center py-12">
+          <Trophy className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+          <h3 className="text-lg font-medium">Tournament not found</h3>
+          <p className="text-muted-foreground mb-4">
+            The tournament you're looking for doesn't exist
+          </p>
+          <Button asChild>
+            <Link href="/tournaments">Back to Tournaments</Link>
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  const getStatusBadge = () => {
+    const now = new Date();
+    const registrationDeadline = tournament.registrationDeadline
+      ? new Date(tournament.registrationDeadline)
+      : null;
+
+    if (tournament.status === "completed") {
+      return <Badge variant="secondary">Completed</Badge>;
+    } else if (tournament.status === "in_progress") {
+      return <Badge className="bg-green-600">Live</Badge>;
+    } else if (tournament.status === "draft") {
+      return <Badge className="bg-gray-600">Draft</Badge>;
+    } else if (registrationDeadline && now > registrationDeadline) {
+      return <Badge variant="destructive">Registration Closed</Badge>;
+    } else if (tournament.currentParticipants >= tournament.maxParticipants) {
+      return <Badge variant="destructive">Full</Badge>;
+    } else {
+      return <Badge className="bg-blue-600">Open</Badge>;
+    }
+  };
+
+  const formatDate = (dateString: string, endDateString?: string) => {
+    const date = new Date(dateString);
+    const endDate = endDateString ? new Date(endDateString) : null;
+
+    if (endDate && endDate.getTime() !== date.getTime()) {
+      return `${date.toLocaleDateString("en-US", {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      })} - ${endDate.toLocaleDateString("en-US", {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      })}`;
+    }
+
+    return date.toLocaleDateString("en-US", {
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    });
+  };
+
+  const canRegister =
+    tournament.status !== "draft" &&
+    tournament.status !== "completed" &&
+    tournament.currentParticipants < tournament.maxParticipants &&
+    (!tournament.registrationDeadline ||
+      new Date() <= new Date(tournament.registrationDeadline));
+
+  const handleShare = () => {
+    if (navigator.share) {
+      navigator.share({
+        title: tournament.name,
+        text: tournament.description,
+        url: window.location.href,
+      });
+    } else {
+      navigator.clipboard.writeText(window.location.href);
+      toast.success("Link copied to clipboard");
+    }
+  };
+
+  const handleFavorite = () => {
+    setIsFavorited(!isFavorited);
+    toast.success(
+      isFavorited ? "Removed from favorites" : "Added to favorites"
+    );
+  };
+
+  const getPlaceIcon = (place: number) => {
+    switch (place) {
+      case 1:
+        return <Trophy className="w-5 h-5 text-yellow-500" />;
+      case 2:
+        return <Medal className="w-5 h-5 text-gray-400" />;
+      case 3:
+        return <Award className="w-5 h-5 text-amber-600" />;
+      default:
+        return (
+          <div className="w-5 h-5 flex items-center justify-center text-sm font-bold text-muted-foreground">
+            {place}
+          </div>
+        );
+    }
+  };
+
+  const getPlaceColor = (place: number) => {
+    switch (place) {
+      case 1:
+        return "bg-yellow-50 border-yellow-200";
+      case 2:
+        return "bg-gray-50 border-gray-200";
+      case 3:
+        return "bg-amber-50 border-amber-200";
+      default:
+        return "";
+    }
+  };
+
+  return (
+    <div className="container mx-auto p-4 md:p-6 max-w-6xl">
+      {/* Header */}
+      <div className="flex items-center mb-6">
+        <Link href="/tournaments" className="mr-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-primary hover:text-primary/80 hover:bg-primary/10"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Tournaments
+          </Button>
+        </Link>
+      </div>
+
+      {/* Tournament Header */}
+      <div className="mb-8">
+        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
+          <div className="flex-1">
+            <div className="flex items-center gap-3 mb-2">
+              <h1 className="text-3xl font-bold">{tournament.name}</h1>
+              {tournament.featured && (
+                <Star className="h-6 w-6 text-yellow-500 fill-current" />
+              )}
+              {getStatusBadge()}
+            </div>
+            <p className="text-muted-foreground text-lg mb-4">
+              {tournament.description}
+            </p>
+
+            <div className="flex flex-wrap gap-3 mb-4">
+              {tournament.format.map((format) => (
+                <Badge key={format} variant="outline">
+                  {format}
+                </Badge>
+              ))}
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {tournament.skillLevels.map((level) => (
+                <Badge key={level} variant="secondary">
+                  {level}
+                </Badge>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Button variant="outline" onClick={handleFavorite}>
+              <Heart
+                className={`w-4 h-4 mr-2 ${
+                  isFavorited ? "fill-current text-red-500" : ""
+                }`}
+              />
+              {isFavorited ? "Favorited" : "Favorite"}
+            </Button>
+            <Button variant="outline" onClick={handleShare}>
+              <Share2 className="w-4 h-4 mr-2" />
+              Share
+            </Button>
+            {canRegister && (
+              <Button size="lg" asChild>
+                <Link href={`/tournaments/${tournament.id}/register`}>
+                  <Users className="w-4 h-4 mr-2" />
+                  Register Now
+                </Link>
+              </Button>
+            )}
+            {!canRegister && tournament.status === "draft" && (
+              <Button size="lg" disabled>
+                Draft Tournament
+              </Button>
+            )}
+            {!canRegister &&
+              tournament.currentParticipants >= tournament.maxParticipants && (
+                <Button size="lg" disabled>
+                  Tournament Full
+                </Button>
+              )}
+            {!canRegister &&
+              tournament.registrationDeadline &&
+              new Date() > new Date(tournament.registrationDeadline) && (
+                <Button size="lg" disabled>
+                  Registration Closed
+                </Button>
+              )}
+          </div>
+        </div>
+      </div>
+
+      {/* Tournament Info Cards */}
+      <div className="grid gap-4 md:grid-cols-4 mb-8">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Date</CardTitle>
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-sm font-medium">
+              {formatDate(tournament.date, tournament.endDate)}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Participants</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {tournament.currentParticipants}/{tournament.maxParticipants}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {tournament.status === "completed"
+                ? "Final count"
+                : `${
+                    tournament.maxParticipants - tournament.currentParticipants
+                  } spots available`}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Entry Fee</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">${tournament.entryFee}</div>
+            <p className="text-xs text-muted-foreground">Per player</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              {tournament.status === "completed" ? "Completed" : "Registration"}
+            </CardTitle>
+            <Clock className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-sm font-medium">
+              {tournament.status === "completed"
+                ? `Ended ${new Date(
+                    tournament.endDate || tournament.date
+                  ).toLocaleDateString()}`
+                : tournament.registrationDeadline
+                ? `Closes ${new Date(
+                    tournament.registrationDeadline
+                  ).toLocaleDateString()}`
+                : "Open Registration"}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {tournament.status === "completed"
+                ? "Tournament finished"
+                : tournament.registrationDeadline
+                ? `${Math.ceil(
+                    (new Date(tournament.registrationDeadline).getTime() -
+                      new Date().getTime()) /
+                      (1000 * 60 * 60 * 24)
+                  )} days left`
+                : "No deadline set"}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Tabs */}
+      <Tabs defaultValue="details" className="w-full">
+        <TabsList>
+          <TabsTrigger value="details">Details</TabsTrigger>
+          <TabsTrigger value="schedule">Schedule</TabsTrigger>
+          <TabsTrigger value="venue">Venue</TabsTrigger>
+          <TabsTrigger value="organizer">Organizer</TabsTrigger>
+          {tournament.status === "completed" && tournament.results && (
+            <TabsTrigger value="results">
+              <Trophy className="w-4 h-4 mr-2" />
+              Results
+            </TabsTrigger>
+          )}
+        </TabsList>
+
+        <TabsContent value="details" className="space-y-6 mt-6">
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>Tournament Information</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <h4 className="font-medium mb-2">Formats & Divisions</h4>
+                  <div className="space-y-2">
+                    {tournament.format.map((format) => (
+                      <div
+                        key={format}
+                        className="flex justify-between items-center"
+                      >
+                        <span>{format}</span>
+                        <div className="flex gap-1">
+                          {tournament.skillLevels.map((level) => (
+                            <Badge
+                              key={`${format}-${level}`}
+                              variant="outline"
+                              className="text-xs"
+                            >
+                              {level}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="font-medium mb-2">Prizes</h4>
+                  <p className="text-sm text-muted-foreground">
+                    {tournament.prizes}
+                  </p>
+                </div>
+
+                {tournament.rules && (
+                  <div>
+                    <h4 className="font-medium mb-2">Rules & Format</h4>
+                    <p className="text-sm text-muted-foreground">
+                      {tournament.rules}
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {tournament.amenities && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Amenities & Features</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-2">
+                    {tournament.amenities.map((amenity) => (
+                      <div key={amenity} className="flex items-center text-sm">
+                        <div className="w-2 h-2 bg-green-500 rounded-full mr-2" />
+                        {amenity}
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="schedule" className="space-y-6 mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Tournament Schedule</CardTitle>
+              <CardDescription>
+                {tournament.status === "completed"
+                  ? "Final schedule for"
+                  : "Detailed schedule for"}{" "}
+                {formatDate(tournament.date, tournament.endDate)}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {tournament.schedule ? (
+                <div className="space-y-4">
+                  {tournament.schedule.map((item, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center space-x-4 p-3 border rounded-lg"
+                    >
+                      <div className="w-20 text-sm font-medium text-primary">
+                        {item.time}
+                      </div>
+                      <div className="flex-1 text-sm">{item.event}</div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <Clock className="w-8 h-8 mx-auto mb-3 text-muted-foreground" />
+                  <p className="text-muted-foreground">
+                    Detailed schedule will be available closer to the tournament
+                    date
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="venue" className="space-y-6 mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Venue Information</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <h4 className="font-medium mb-2">{tournament.venue}</h4>
+                <div className="flex items-start space-x-2 text-sm text-muted-foreground">
+                  <MapPin className="w-4 h-4 mt-0.5" />
+                  <div>
+                    <p>{tournament.address}</p>
+                    <p>{tournament.location}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" asChild>
+                  <a
+                    href={`https://maps.google.com/?q=${encodeURIComponent(
+                      tournament.address
+                    )}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <ExternalLink className="w-4 h-4 mr-2" />
+                    View on Maps
+                  </a>
+                </Button>
+                <Button variant="outline" size="sm" asChild>
+                  <a
+                    href={`https://maps.google.com/?daddr=${encodeURIComponent(
+                      tournament.address
+                    )}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Get Directions
+                  </a>
+                </Button>
+              </div>
+
+              {tournament.amenities && (
+                <div>
+                  <h4 className="font-medium mb-2">Venue Amenities</h4>
+                  <div className="grid grid-cols-2 gap-2">
+                    {tournament.amenities.map((amenity) => (
+                      <div key={amenity} className="flex items-center text-sm">
+                        <div className="w-2 h-2 bg-green-500 rounded-full mr-2" />
+                        {amenity}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="organizer" className="space-y-6 mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Tournament Organizer</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center space-x-3">
+                <Avatar className="h-12 w-12">
+                  <AvatarImage
+                    src={`/placeholder.svg?height=48&width=48&text=${tournament.organizer.charAt(
+                      0
+                    )}`}
+                  />
+                  <AvatarFallback>
+                    {tournament.organizer.charAt(0)}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <h4 className="font-medium">{tournament.organizer}</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Tournament Organizer
+                  </p>
+                </div>
+              </div>
+
+              {tournament.organizerContact && (
+                <div className="space-y-3">
+                  <h4 className="font-medium">Contact Information</h4>
+                  <div className="space-y-2">
+                    {tournament.organizerContact.email && (
+                      <div className="flex items-center space-x-2 text-sm">
+                        <Mail className="w-4 h-4 text-muted-foreground" />
+                        <a
+                          href={`mailto:${tournament.organizerContact.email}`}
+                          className="text-primary hover:underline"
+                        >
+                          {tournament.organizerContact.email}
+                        </a>
+                      </div>
+                    )}
+                    {tournament.organizerContact.phone && (
+                      <div className="flex items-center space-x-2 text-sm">
+                        <Phone className="w-4 h-4 text-muted-foreground" />
+                        <a
+                          href={`tel:${tournament.organizerContact.phone}`}
+                          className="text-primary hover:underline"
+                        >
+                          {tournament.organizerContact.phone}
+                        </a>
+                      </div>
+                    )}
+                    {tournament.organizerContact.website && (
+                      <div className="flex items-center space-x-2 text-sm">
+                        <Globe className="w-4 h-4 text-muted-foreground" />
+                        <a
+                          href={tournament.organizerContact.website}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary hover:underline"
+                        >
+                          Visit Website
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <div className="pt-4 border-t">
+                <Button variant="outline" className="w-full bg-transparent">
+                  <Mail className="w-4 h-4 mr-2" />
+                  Contact Organizer
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {tournament.status === "completed" && tournament.results && (
+          <TabsContent value="results" className="space-y-6 mt-6">
+            <div className="space-y-6">
+              <div className="text-center">
+                <Trophy className="w-12 h-12 mx-auto mb-4 text-yellow-500" />
+                <h2 className="text-2xl font-bold mb-2">Tournament Results</h2>
+                <p className="text-muted-foreground">
+                  Final standings for all divisions
+                </p>
+              </div>
+
+              {tournament.results.map((division, index) => (
+                <Card key={index}>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Trophy className="w-5 h-5" />
+                      {division.division} - {division.skillLevel}
+                    </CardTitle>
+                    <CardDescription>
+                      {division.format} • Final Results
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-16">Place</TableHead>
+                          <TableHead>Players</TableHead>
+                          <TableHead className="text-right">Prize</TableHead>
+                          <TableHead className="text-right">Points</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {division.results.map((result, resultIndex) => (
+                          <TableRow
+                            key={resultIndex}
+                            className={getPlaceColor(result.place)}
+                          >
+                            <TableCell className="font-medium">
+                              <div className="flex items-center gap-2">
+                                {getPlaceIcon(result.place)}
+                                <span className="font-bold">
+                                  {result.place}
+                                </span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex flex-col">
+                                {result.players.map((player, playerIndex) => (
+                                  <div
+                                    key={playerIndex}
+                                    className="flex items-center gap-2"
+                                  >
+                                    <Avatar className="h-6 w-6">
+                                      <AvatarImage
+                                        src={`/placeholder.svg?height=24&width=24&text=${player.charAt(
+                                          0
+                                        )}`}
+                                      />
+                                      <AvatarFallback className="text-xs">
+                                        {player.charAt(0)}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    <span className="font-medium">
+                                      {player}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right font-medium">
+                              {result.prize || "-"}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Badge variant="outline">
+                                {result.points} pts
+                              </Badge>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              ))}
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Tournament Statistics</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-primary">
+                        {tournament.results.length}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        Divisions
+                      </div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-primary">
+                        {tournament.results.reduce(
+                          (total, division) => total + division.results.length,
+                          0
+                        )}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        Total Matches
+                      </div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-primary">
+                        {tournament.currentParticipants}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        Participants
+                      </div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-primary">
+                        $
+                        {tournament.results
+                          .reduce((total, division) => {
+                            return (
+                              total +
+                              division.results.reduce((divTotal, result) => {
+                                const prize = result.prize
+                                  ? Number.parseInt(
+                                      result.prize
+                                        .replace("$", "")
+                                        .replace(",", "")
+                                    )
+                                  : 0;
+                                return divTotal + prize;
+                              }, 0)
+                            );
+                          }, 0)
+                          .toLocaleString()}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        Total Prizes
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+        )}
+      </Tabs>
+    </div>
+  );
+}
